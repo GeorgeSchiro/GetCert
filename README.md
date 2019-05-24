@@ -6,7 +6,7 @@ Overview
 
 This utility gets a digital certificate from the **FREE** "Let's Encrypt" certificate provider network (see "LetsEncrypt.org"). It installs the certificate in your server's local computer certificate store and binds it to port 443 in IIS.
 
-If the current time is not within a given number of days prior to expiration of the current digital certificate (eg. 30 days, see -ExpirationDaysBeforeRenewal below), this software does nothing. Otherwise, the retrieval process begins. If "stand-alone" mode is disabled (see -UseStandAloneMode below), the certificate retrieval process is used in concert with the secure certificate service (SCS), see "SafeTrust.org".
+If the current time is not within a given number of days prior to expiration of the current digital certificate (eg. 30 days, see -ExpirationDaysBeforeRenewal below), this software does nothing. Otherwise, the retrieval process begins. If "stand-alone" mode is disabled (see -UseStandAloneMode below), the certificate retrieval process is used in concert with the secure certificate service (SCS, see "SafeTrust.org").
 
 If the software is not running in "stand-alone" mode, it also copies any new cert to a file anywhere on the local area network to be picked up by the load balancer administrator or process. It also replaces the SSO (single-sign-on) certificate in your central SSO configuration (ie. ADFS) and restarts the SSO service on all servers in any defined SSO server farm. It also replaces all integrated application SSO certificate references in any number of configuration files anywhere on the local network.
 
@@ -16,7 +16,7 @@ Give it a try.
 
 The first time you run "GetCert.exe" it will prompt you to create a "GetCert" folder on your desktop. It will copy itself and continue running from there.
 
-Everything the software needs is written to the "GetCert" folder. Nothing is written anywhere else.
+Everything the software needs is written to the "GetCert" folder. Nothing is written anywhere else (except IIS configuration and your certificates).
 
 If you like the software, you can leave it on your desktop or you can run "Setup Application Folder.exe" (also in the "GetCert" folder, be sure to run it as administrator). If you decide not to keep the software, simply delete the "GetCert" folder from your desktop.
 
@@ -26,9 +26,9 @@ Features
 
 
 -   Simple setup - try it out fast
--   Only two website details needed to get started
+-   Only two input details needed to get started
 -   Performs extensive handshaking with the "Let's Encrypt"
-    certificate network, all completely automatically
+    certificate provider network, all completely automatically
 -   Installs a new certificate and binds it to port 443 in IIS
 -   Comprehensive dated log files are produced with every run
 -   Can be command-line driven from a server batch job scheduler
