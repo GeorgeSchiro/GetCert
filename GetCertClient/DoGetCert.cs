@@ -208,6 +208,13 @@ A brief description of each feature follows.
     This is the contact email address the certificate network uses to send
     certificate expiration notices.
 
+-CreateSanSites=True
+
+    If a SAN specific website does not yet exist in IIS, it will be created
+    automatically during the first run of the ""get certificate"" process for
+    that SAN value. Set this switch False to have all SAN challenges routed
+    through the IIS default website (such challenges will typically fail).
+
 -DoStagingTests=True
 
     Initial testing is done with the certificate provider staging network. Set
@@ -1019,12 +1026,56 @@ Notes:
 
             return DoGetCert.oCurrentCertificate(asCertName, out aoServerManager, out aoSiteFound, out loBinding);
         }
-        private static X509Certificate2 oCurrentCertificate(string asCertName, out ServerManager aoServerManager, out Site aoSiteFound, out Binding aoBindingFound)
+        private static X509Certificate2 oCurrentCertificate(
+                  string asCertName
+                , out ServerManager aoServerManager
+                , out Site aoSiteFound
+                , out Binding aoBindingFound
+                )
+        {
+            string[]        lsSanArray = null;
+            Site            loDefaultSite = null;
+
+            return DoGetCert.oCurrentCertificate(asCertName, out aoServerManager, out aoSiteFound, out aoBindingFound, lsSanArray, out loDefaultSite);
+        }
+        private static X509Certificate2 oCurrentCertificate(
+                  string asCertName
+                , out Site aoSiteFound
+                , string[] asSanArray
+                )
+        {
+            ServerManager   loServerManager = null;
+            Binding         loBinding = null;
+            Site            loDefaultSite = null;
+
+            return DoGetCert.oCurrentCertificate(asCertName, out loServerManager, out aoSiteFound, out loBinding, asSanArray, out loDefaultSite);
+        }
+        private static X509Certificate2 oCurrentCertificate(
+                  string asCertName
+                , out ServerManager aoServerManager
+                , out Site aoSiteFound
+                , string[] asSanArray
+                , out Site aoDefaultSiteFound
+                )
+        {
+            Binding         loBinding = null;
+
+            return DoGetCert.oCurrentCertificate(asCertName, out aoServerManager, out aoSiteFound, out loBinding, asSanArray, out aoDefaultSiteFound);
+        }
+        private static X509Certificate2 oCurrentCertificate(
+                  string asCertName
+                , out ServerManager aoServerManager
+                , out Site aoSiteFound
+                , out Binding aoBindingFound
+                , string[] asSanArray
+                , out Site aoDefaultSiteFound
+                )
         {
             // ServerManager is the IIS ServerManager. It gives us the website for binding the cert.
             aoServerManager = new ServerManager();
             aoSiteFound = null;
             aoBindingFound = null;
+            aoDefaultSiteFound = null;
 
             string              lsCertName = null == asCertName ? null : asCertName.ToLower();
             X509Certificate2    loCurrentCertificate = null;
@@ -1080,6 +1131,15 @@ Notes:
 
                 if ( null != aoBindingFound )
                     break;
+            }
+
+            // Finally, finally (no really), with no site found, find a related primary site to use for defaults.
+            string lsPrimaryCertName = null == asSanArray || 0 == asSanArray.Length ? null : asSanArray[0].ToLower();
+
+            if ( null == aoSiteFound && null != lsPrimaryCertName && lsCertName != lsPrimaryCertName )
+            {
+                // Use the primary site in the SAN array as defaults for any new site (to be created).
+                DoGetCert.oCurrentCertificate(lsPrimaryCertName, out aoDefaultSiteFound, asSanArray);
             }
 
             return loCurrentCertificate;
@@ -2492,7 +2552,7 @@ Checklist for {EXE} setup (SCS version):
                 lsHash = HashClass.sHashIt(new tvProfile(lsProfile));
 
                 string              lsGuid = moProfile.sValue("-InstanceGuid", Guid.NewGuid().ToString());
-                string              lsDefaultPhysicalPath = @"%SystemDrive%\inetpub\wwwroot";
+                string              lsDefaultPhysicalPath = moProfile.sValue("-DefaultPhysicalPath", @"%SystemDrive%\inetpub\wwwroot");
                                     // Get the list of machine key files prior to adding a new one.
                 string              lsCertificatePassword = HashClass.sHashPw(lsProfile);
                 ServerManager       loServerManager = null;
@@ -2670,25 +2730,48 @@ New-ACMERegistration -Contacts mailto:{ContactEmailAddress} -AcceptTos
                                 this.LogStage("3 - Define DNS name to be challenged, setup domain challenge in IIS");
 
                                 Site    loSanSite = null;
-                                        DoGetCert.oCurrentCertificate(lsSanItem, out loServerManager, out loSanSite);
+                                Site    loDefaultSite = null;
+                                        DoGetCert.oCurrentCertificate(lsSanItem, out loServerManager, out loSanSite, lsSanArray, out loDefaultSite);
 
-                                        if ( null == loSanSite && 0 != loServerManager.Sites.Count )
-                                            loSanSite = loServerManager.Sites[0];
+                                // If -CreateSanSites is false, only create a default
+                                // website (as needed) and use it for all SAN values.
+                                if ( null == loSanSite && !moProfile.bValue("-CreateSanSites", true)
+                                        && 0 != loServerManager.Sites.Count )
+                                {
+                                    this.LogIt(String.Format("No website found for \"{0}\".\r\n-CreateSanSites is \"False\". So no website created.\r\n", lsSanItem));
+
+                                    loSanSite = loServerManager.Sites[0];
+                                }
 
                                 if ( null == loSanSite )
                                 {
-                                    this.LogIt("No default website could be found.");
+                                    string lsPhysicalPath = null;
 
+                                    if ( 0 == loServerManager.Sites.Count )
+                                    {
+                                        this.LogIt("No default website could be found.");
+
+                                        lsPhysicalPath = lsDefaultPhysicalPath;
+                                    }
+                                    else
+                                    {
+                                        if ( null != loDefaultSite )
+                                            lsPhysicalPath = loDefaultSite.Applications["/"].VirtualDirectories["/"].PhysicalPath;
+                                        else
+                                            lsPhysicalPath = loServerManager.Sites[0].Applications["/"].VirtualDirectories["/"].PhysicalPath;
+                                    }
+
+                                    // Leave hostname blank in the default website to allow for old browsers (ie. no SNI support).
                                     loSanSite = loServerManager.Sites.Add(
                                               lsSanItem
                                             , "http"
-                                            , "*:80:"
-                                            , lsDefaultPhysicalPath
+                                            , String.Format("*:80:{0}", 0 == loServerManager.Sites.Count ? "" : lsSanItem)
+                                            , lsPhysicalPath
                                             );
 
                                     loServerManager.CommitChanges();
 
-                                    this.LogIt(String.Format("New website created for \"{0}\".", lsSanItem));
+                                    this.LogIt(String.Format("No website found for \"{0}\". New website created.", lsSanItem));
                                     this.LogIt("");
                                 }
 
@@ -2983,8 +3066,9 @@ Get-ACMECertificate cert1 -ExportPkcs12 '{CertificatePathFile}' -CertificatePass
                             {
                                 Site    loOldSite = null;
                                 Binding loOldBinding = null;
+                                Site    loDefaultSite = null;
 
-                                DoGetCert.oCurrentCertificate(lsSanItem, out loServerManager, out loOldSite, out loOldBinding);
+                                DoGetCert.oCurrentCertificate(lsSanItem, out loServerManager, out loOldSite, out loOldBinding, lsSanArray, out loDefaultSite);
 
                                 if ( null == loOldSite && lsSanItem == lsCertName )
                                 {
@@ -2999,15 +3083,35 @@ Get-ACMECertificate cert1 -ExportPkcs12 '{CertificatePathFile}' -CertificatePass
                                 // Create a new site with the default port 80 binding (as needed).
                                 if ( null == loOldSite )
                                 {
-                                    loOldSite = loServerManager.Sites.Add(
-                                              lsSanItem
-                                            , "http"
-                                            , String.Format("*:80:{0}", lsSanItem)
-                                            , 0 == loServerManager.Sites.Count  ? lsDefaultPhysicalPath
-                                                                                : loServerManager.Sites[0].Applications["/"].VirtualDirectories["/"].PhysicalPath
-                                            );
+                                    if ( !moProfile.bValue("-CreateSanSites", true) )
+                                    {
+                                        this.LogIt(String.Format("No website could be found for \"{0}\".\r\n-CreateSanSites is \"False\". So no website created.\r\n", lsSanItem));
+                                    }
+                                    else
+                                    {
+                                        string lsPhysicalPath = null;
 
-                                    this.LogIt(String.Format("New website created for \"{0}\".", lsSanItem));
+                                        if ( 0 == loServerManager.Sites.Count )
+                                        {
+                                            lsPhysicalPath = lsDefaultPhysicalPath;
+                                        }
+                                        else
+                                        {
+                                            if ( null != loDefaultSite )
+                                                lsPhysicalPath = loDefaultSite.Applications["/"].VirtualDirectories["/"].PhysicalPath;
+                                            else
+                                                lsPhysicalPath = loServerManager.Sites[0].Applications["/"].VirtualDirectories["/"].PhysicalPath;
+                                        }
+
+                                        loOldSite = loServerManager.Sites.Add(
+                                                  lsSanItem
+                                                , "http"
+                                                , String.Format("*:80:{0}", lsSanItem)
+                                                , lsPhysicalPath
+                                                );
+
+                                        this.LogIt(String.Format("No website found for \"{0}\". New website created.", lsSanItem));
+                                    }
                                 }
                                 else
                                 if  ( null != loOldBinding )

@@ -30,6 +30,7 @@ Features
 -   Performs extensive handshaking with the "Let's Encrypt"
     certificate provider network, all completely automatically
 -   Installs a new certificate and binds it to port 443 in IIS
+-   Creates new websites in IIS (as needed) for each SAN domain
 -   Comprehensive dated log files are produced with every run
 -   Can be command-line driven from a server batch job scheduler
 -   Software is highly configurable
@@ -57,38 +58,44 @@ Requirements
 ============
 
 
--   Windows Server 2008 R2+
+-   .Net Framework 4.5+
 -   Internet Information Services (IIS)
+-   Windows Server 2008 R2+ (to run "GetCert.exe")
+-   Windows Server 2012+ (to compile "GetCert.exe")
 
 
 Command-Line Usage
 ==================
 
 
-Open this utility's profile file to see additional options available. It is usually located in the same folder as "GetCert.exe" and has the same name with ".config" added (see "GetCert.exe.config").
+    Open this utility's profile file to see additional options available. It is 
+    usually located in the same folder as "GetCert.exe" and has the same name 
+    with ".config" added (see "GetCert.exe.config").
 
-Profile file options can be overridden with command-line arguments. The keys for any "-key=value" pairs passed on the command-line must match those that appear in the profile (with the exception of the "-ini" key).
+    Profile file options can be overridden with command-line arguments. The keys 
+    for any "-key=value" pairs passed on the command-line must match those that 
+    appear in the profile (with the exception of the "-ini" key).
 
-For example, the following invokes the use of an alternative profile file:
+    For example, the following invokes the use of an alternative profile file:
 
-    GetCert.exe -ini=NewProfile.txt
+        GetCert.exe -ini=NewProfile.txt
 
-This tells the software to run in automatic mode:
+    This tells the software to run in automatic mode:
 
-    GetCert.exe -Auto
-
-
-Author:  George Schiro (GeoCode@SafeTrust.org)
-
-Date:    4/27/2017
+        GetCert.exe -Auto
 
 
+    Author:  George Schiro (GeoCode@SafeTrust.org)
+
+    Date:    4/27/2017
 
 
 Options and Features
+====================
 
 
-The main options for this utility are listed below with their default values. A brief description of each feature follows.
+    The main options for this utility are listed below with their default values. 
+    A brief description of each feature follows.
 
 -ACMESharpModuleUseGallery=False
 
@@ -140,6 +147,13 @@ The main options for this utility are listed below with their default values. A 
 
     This is the contact email address the certificate network uses to send
     certificate expiration notices.
+
+-CreateSanSites=True
+
+    If a SAN specific website does not yet exist in IIS, it will be created
+    automatically during the first run of the "get certificate" process for
+    that SAN value. Set this switch False to have all SAN challenges routed
+    through the IIS default website (such challenges will typically fail).
 
 -DoStagingTests=True
 

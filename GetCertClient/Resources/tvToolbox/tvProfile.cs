@@ -141,7 +141,7 @@ namespace tvToolbox
     /// Author:     George Schiro (GeoCode@Schiro.name)
     /// </p>
     /// <p>
-    /// Version:    2.2
+    /// Version:    2.21
     /// Copyright:  1996 - 2121
     /// </p>
     /// </summary>
@@ -2509,13 +2509,23 @@ namespace tvToolbox
                 else
                 if ( tvProfileFileCreateActions.PromptToCreateFile == this.eFileCreateAction )
                 {
-                    string lsNewPath = Path.Combine(
+                    string  lsNewPath = Path.Combine(
                             Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), lsFilnameOnly);
-                    string lsNewExePathFile = Path.Combine(lsNewPath, Path.GetFileName(this.sExePathFile));
+                    string  lsNewExePathFile = Path.Combine(lsNewPath, Path.GetFileName(this.sExePathFile));
+                    bool    lbHasArgs = false;
+                            foreach ( string lsItem in this.sInputCommandLineArray )
+                            {
+                                if ( lsItem.Trim().StartsWith(mcsArgMark) )
+                                {
+                                    lbHasArgs = true;
+                                    break;
+                                }
+                            }
 
-                    // If the EXE is not already in a folder with a matching name and if the 
-                    // EXE is not already installed in a typical installation folder, proceed.
-                    if ( !this.bInOwnFolder && !this.bInstalledAlready )
+                    // If the EXE is not already in a folder with a matching name and if
+                    // the EXE is not already installed in a typical installation folder, 
+                    // and if there are no arguments passed on the command-line, proceed.
+                    if ( !this.bInOwnFolder && !this.bInstalledAlready && !lbHasArgs )
                     {
                         string lsMessage = String.Format(( Directory.Exists(lsNewPath)
                                 ? "an existing folder ({0}) on your desktop"
