@@ -60,8 +60,7 @@ Requirements
 
 -   .Net Framework 4.5+
 -   Internet Information Services (IIS)
--   Windows Server 2008 R2+ (to run "GetCert.exe")
--   Windows Server 2012+ (to compile "GetCert.exe")
+-   Windows Server 2008 R2+
 
 
 Command-Line Usage
@@ -294,8 +293,9 @@ Options and Features
 -ScriptStage1= SEE PROFILE FOR DEFAULT VALUE
 
     There are multiple stages involved with the process of getting a certificate
-    from the certificate network. Each stage has an associated Powershell script.
-    The stages are represented in this profile by -ScriptStage1 thru -ScriptStage8.
+    from the certificate provider network. Each stage has an associated Powershell 
+    script. The stages are represented in this profile by -ScriptStage1 thru
+    -ScriptStage8.
 
 -ServiceReportEverything=True
 

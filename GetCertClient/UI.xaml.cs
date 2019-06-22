@@ -1047,11 +1047,11 @@ You can continue this later wherever you left off. "
             {
                 if ( !loEmailRegex.IsMatch(this.ContactEmailAddress.Text) )
                     lsMessage += (null == lsMessage ? "" : Environment.NewLine + Environment.NewLine)
-                            + string.Format("Enter a valid email address{0}.", !this.ContactEmailAddress.Text.Contains(" ") ? "" :  lsCommonMsg)
+                            + string.Format("Enter a valid email address{0}. ", !this.ContactEmailAddress.Text.Contains(" ") ? "" :  lsCommonMsg)
                             ;
                 if ( !loDnsNameRegex.IsMatch(this.CertificateDomainName.Text) )
                     lsMessage += (null == lsMessage ? "" : Environment.NewLine + Environment.NewLine)
-                            + string.Format("Enter a valid domain name{0}.", !this.CertificateDomainName.Text.Contains(" ") ? "" :  lsCommonMsg)
+                            + string.Format("Enter a valid domain name{0}. ", !this.CertificateDomainName.Text.Contains(" ") ? "" :  lsCommonMsg)
                             ;
 
                 string  lsSanListMsgs = this.bValidateConfigWizardSanList();

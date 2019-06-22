@@ -354,8 +354,9 @@ A brief description of each feature follows.
 -ScriptStage1= SEE PROFILE FOR DEFAULT VALUE
 
     There are multiple stages involved with the process of getting a certificate
-    from the certificate network. Each stage has an associated Powershell script.
-    The stages are represented in this profile by -ScriptStage1 thru -ScriptStage8.
+    from the certificate provider network. Each stage has an associated Powershell 
+    script. The stages are represented in this profile by -ScriptStage1 thru
+    -ScriptStage8.
 
 -ServiceReportEverything=True
 
@@ -1640,15 +1641,6 @@ Notes:
             asOutput = msPowerScriptOutput;
 
             return lbRunPowerScript;
-        }
-
-        // This kludge prevents a runtime exception which can't be caught
-        // when the code below appears in the calling method directly. In
-        // this case, this underlying issue is the new SNI support in more
-        // recent versions of the OS.
-        private void OsSpecificBinding(Site aoSite, X509Store aoStore, X509Certificate2 aoCertificate, string asBindingInformation)
-        {
-            aoSite.Bindings.Add(asBindingInformation, aoCertificate.GetCertHash(), aoStore.Name, SslFlags.Sni);
         }
 
         private void PowerScriptProcessOutputHandler(object sendingProcess, DataReceivedEventArgs outLine)
@@ -3129,9 +3121,15 @@ Get-ACMECertificate cert1 -ExportPkcs12 '{CertificatePathFile}' -CertificatePass
 
                                 try
                                 {
-                                    // If there's no binding host defined or it's the primary domain (and it has no website of its own), bind to the default website.
-                                    if ( "" == lsBindingHost || (lsSanItem == lsCertName && loOldSite.Name != lsSanItem
-                                            && 0 != loServerManager.Sites[0].Bindings.Count && "" == loServerManager.Sites[0].Bindings[0].Host) )
+                                    // If there's no binding host defined or this SAN is the primary domain (and it has no website of its
+                                    // own), use the default binding (ditto if the default binding host on the default site is undefined).
+                                    bool    lbUseDefaultBinding = ("" == lsBindingHost
+                                                    || (   lsSanItem == lsCertName
+                                                        && loOldSite.Name != lsSanItem
+                                                        && 0 != loServerManager.Sites[0].Bindings.Count && "" == loServerManager.Sites[0].Bindings[0].Host
+                                                        ));
+
+                                    if ( lbUseDefaultBinding )
                                     {
                                         lsBindingHost = "";
                                         lsBindingInformation = String.Format("*:{0}:{1}", lsBindingPort, lsBindingHost);
@@ -3141,19 +3139,19 @@ Get-ACMECertificate cert1 -ExportPkcs12 '{CertificatePathFile}' -CertificatePass
                                     }
                                     else
                                     {
+                                        Binding loNewBinding = loOldSite.Bindings.Add(lsBindingInformation, loNewCertificate.GetCertHash(), loStore.Name);
+
                                         try
                                         {
-                                            // A bound host name means the SNI (Server Name Indication) flag must also be set.
-                                            this.OsSpecificBinding(loOldSite, loStore, loNewCertificate, lsBindingInformation);
+                                            // Attempt to set the SNI (Server Name Indication) flag.
+                                            loNewBinding.SetAttributeValue("SslFlags", 1 /* SslFlags.Sni */);
 
-                                            this.LogIt(String.Format("SNI binding for new certificate (\"{0}\") applied.", loNewCertificate.Thumbprint));
+                                            this.LogIt(String.Format("SNI binding applied for new certificate (\"{0}\").", loNewCertificate.Thumbprint));
                                         }
-                                        catch (MissingMethodException)
+                                        catch (Exception)
                                         {
-                                            // Revert to the default binding usage (must be an older OS version).
-                                            loOldSite.Bindings.Add(lsBindingInformation, loNewCertificate.GetCertHash(), loStore.Name);
-
-                                            this.LogIt(String.Format("Default binding for new certificate (\"{0}\") applied (on older OS).", loNewCertificate.Thumbprint));
+                                            // Reverting to the default binding usage (must be an older OS version).
+                                            this.LogIt(String.Format("Default binding applied (on older OS) for new certificate (\"{0}\").", loNewCertificate.Thumbprint));
                                         }
                                     }
 
